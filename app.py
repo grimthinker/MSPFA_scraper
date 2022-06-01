@@ -17,25 +17,23 @@ pauseA = 4.4                        # Waiting time for a page to fully load
 pauseB = 0.7                        # Time between thread's launches, to make some pause between making requests
 
 
-def get_pages_list():
-    pages_list = []
+def get_pages_urls_list():
     browser = webdriver.Chrome()
     browser.get(url_base+url_log)
     WebDriverWait(browser, pauseA).until(EC.presence_of_element_located((By.ID, "pages")))
     soup = bs(browser.page_source, 'html.parser')
-    pages_list_element = soup.find("td", attrs={"id": "pages"}).find_all('a')
-    for page_element in pages_list_element:
-        pages_list.append(page_element.attrs['href'])
+    pgs_list_elem = soup.find("td", attrs={"id": "pages"}).find_all('a')
+    pgs_list = tuple(pg_elem.attrs['href'] for pg_elem in pgs_list_elem)
     browser.close()
-    return pages_list
+    return pgs_list
 
 
-def separate_list(l: list, m: int):
+def separate_list(l: tuple, m: int):
     ceil = len(l)//m
-    return [l[i:i+ceil] for i in range(0, len(l), ceil)]
+    return (l[i:i+ceil] for i in range(0, len(l), ceil))
 
 
-def get_data_from_pages(pages_pack):
+def get_data_from_pages(pages_pack: tuple):
     browser = webdriver.Chrome()
     for url_page in pages_pack:
         browser.get(url_base+url_page)
@@ -47,7 +45,6 @@ def get_data_from_pages(pages_pack):
             except NoSuchElementException:
                 browser.refresh()
                 sleep(pauseA)
-
         soup = bs(browser.page_source, 'html.parser')
         command = str(soup.find("div", attrs={"id": "command"}))
         content = str(soup.find("div", attrs={"id": "content"}))
@@ -61,8 +58,8 @@ def write_in_file():
 
 
 def main():
-    separated_list = separate_list(get_pages_list(), max_threads)
-    for pack_for_thread in separated_list:
+    separated_gen = separate_list(get_pages_urls_list(), max_threads)
+    for pack_for_thread in separated_gen:
         thread = threading.Thread(target=get_data_from_pages, args=(pack_for_thread, ))
         thread.start()
         sleep(pauseB)
